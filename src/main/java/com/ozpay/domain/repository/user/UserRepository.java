@@ -1,4 +1,4 @@
-package com.ozpay.domain.repository;
+package com.ozpay.domain.repository.user;
 
 import com.ozpay.domain.entity.User;
 

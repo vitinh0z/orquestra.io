@@ -1,10 +1,10 @@
 package com.ozpay.infra.persistence;
 
 import com.ozpay.domain.entity.User;
-import com.ozpay.domain.repository.UserJpaRepository;
-import com.ozpay.domain.repository.UserRepository;
+import com.ozpay.domain.repository.user.UserRepository;
 import com.ozpay.infra.persistence.entity.UserEntity;
 import com.ozpay.infra.persistence.mapper.UserMapper;
+import com.ozpay.infra.persistence.repository.user.UserJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
