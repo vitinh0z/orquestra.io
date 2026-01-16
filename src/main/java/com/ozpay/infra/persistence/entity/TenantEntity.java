@@ -19,11 +19,13 @@ public class TenantEntity {
     @Id
     private UUID tenantId;
 
+    @Column(nullable = false)
     private String name;
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String apiKey;
 
+    @Column(nullable = false)
     private boolean isActive;
 
 }
