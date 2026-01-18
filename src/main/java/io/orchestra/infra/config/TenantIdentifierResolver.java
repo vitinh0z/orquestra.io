@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver<String>{
 
+    private static final String DEFAULT_TENANT = "default_tenant";
+
     @Override
     public String resolveCurrentTenantIdentifier() {
         TenantEntity currentTenant = TenantContext.get();
@@ -15,7 +17,7 @@ public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver
         if (currentTenant != null && currentTenant.getTenantId() != null){
             return currentTenant.getTenantId().toString();
         }
-        return "default_tenant";
+        return DEFAULT_TENANT;
     }
 
     @Override
