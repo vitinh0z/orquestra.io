@@ -31,9 +31,9 @@ public class GatewayEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String encryptedCredential;
 
-    // Menor número = Maior prioridade (1 = Principal, 2 = Backup)
+    // high number = high priority (1 = Principal, 2 = Backup)
     @Column(name = "priority", nullable = false)
-    private Integer Priority = 1;
+    private Integer priority = 1;
 
     private boolean isActive = true;
 

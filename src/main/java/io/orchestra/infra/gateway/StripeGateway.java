@@ -7,8 +7,7 @@ import org.springframework.stereotype.Component;
 public class StripeGateway implements PaymentGateway {
     @Override
     public Payment process(Payment payment) {
-        return null;
-        System.out.println("stripe");
+        throw new UnsupportedOperationException("Stripe gateway processing is not yet implemented.");
     }
 
 

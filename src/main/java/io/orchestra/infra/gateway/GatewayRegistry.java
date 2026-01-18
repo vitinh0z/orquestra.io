@@ -9,7 +9,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GatewayRegistry {
 
-
     private final Map<String, PaymentGateway> gatewayMap;
 
     public PaymentGateway getGateway(String gatewayName){
@@ -17,7 +16,7 @@ public class GatewayRegistry {
         PaymentGateway paymentGateway = gatewayMap.get(gatewayName);
 
         if (paymentGateway == null){
-            throw new RuntimeException("Gateway "+ gatewayName + "not found");
+            throw new IllegalArgumentException("Gateway "+ gatewayName + "not found");
         }
 
         return paymentGateway;
