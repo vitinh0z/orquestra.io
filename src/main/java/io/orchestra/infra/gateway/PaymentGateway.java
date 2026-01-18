@@ -7,6 +7,5 @@ import org.springframework.stereotype.Component;
 @Component
 public interface PaymentGateway {
 
-    @Bean
     Payment process(Payment payment);
 }
