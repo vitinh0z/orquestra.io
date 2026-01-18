@@ -1,4 +1,4 @@
-# OzPay
+# Orchestra.io
 
 **Intelligent Payment Orchestration for Brazil + Global Markets**
 
@@ -38,7 +38,7 @@ If you sell courses, SaaS, or digital products, you face this challenge:
 
 **Result:** You lose ~30% of Brazilian sales (no PIX) or lose international sales (no Stripe).
 
-### The OzPay Solution
+### The Orchestra.io Solution
 
 One integration. Multiple gateways. Zero code duplication.
 
@@ -347,7 +347,7 @@ curl -X POST http://localhost:8080/v1/payments \
 ```mermaid
 sequenceDiagram
     participant Admin
-    participant OzPay
+    participant Orchestra
     participant CryptoService
     participant Database
 
@@ -441,7 +441,7 @@ sequenceDiagram
 
 ## Business Model (Future)
 
-OzPay will be commercialized as **SaaS** (OzPay.app), but with **open-source** code.
+Orchestra will be commercialized as **SaaS** (orchestra.io), but with **open-source** code.
 
 ### Planned Pricing
 
@@ -594,7 +594,7 @@ SOFTWARE.
 
 Attribution Requirement:
 Any use of this software in a product or service must include a visible 
-attribution to "OzPay by vitinh0z" in the product documentation, website 
+attribution to "Orchestra.io by vitinh0z" in the product documentation, website 
 footer, or credits section.
 ```
 
