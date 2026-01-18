@@ -2,7 +2,7 @@ package io.orchestra.infra.controller;
 
 import io.orchestra.application.dto.PaymentRequestDTO;
 import io.orchestra.application.dto.PaymentResponseDTO;
-import io.orchestra.application.usecase.ProcessPaymentUsaCase;
+import io.orchestra.application.usecase.ProcessPaymentUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,12 +15,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 
 @RestController
-@RequestMapping(name ="/v1/")
+@RequestMapping("/v1/")
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private final ProcessPaymentUsaCase usecase;
-
+    private final ProcessPaymentUseCase usecase;
 
     @PostMapping("/payments")
     public ResponseEntity<PaymentResponseDTO> payment (@Valid @RequestBody PaymentRequestDTO dto,

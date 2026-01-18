@@ -50,7 +50,7 @@ public class GatewayConfigurationMapper {
 
             return new Gateway(
                     gatewayEntity.getId(),
-                    gatewayEntity.getTenentId(),
+                    gatewayEntity.getTenantId(),
                     gatewayEntity.getGatewayName(),
                     credentials,
                     gatewayEntity.isActive()
