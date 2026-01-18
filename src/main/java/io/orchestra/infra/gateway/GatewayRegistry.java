@@ -12,7 +12,7 @@ public class GatewayRegistry {
 
     private final Map<String, PaymentGateway> gatewayMap;
 
-    public PaymentGateway getGeteway(String gatewayName){
+    public PaymentGateway getGateway(String gatewayName){
 
         PaymentGateway paymentGateway = gatewayMap.get(gatewayName);
 
