@@ -2,9 +2,11 @@ package io.orchestra.infra.gateway;
 
 import io.orchestra.domain.entity.Payment;
 import io.orchestra.domain.entity.PaymentStatus;
+import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
+@Component
 public class FakeGateway implements PaymentGateway{
 
     @Override

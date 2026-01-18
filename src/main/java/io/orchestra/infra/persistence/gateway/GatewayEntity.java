@@ -23,7 +23,7 @@ public class GatewayEntity {
     private UUID id;
 
     @Column(nullable = false)
-    private UUID tenentId;
+    private UUID tenantId;
 
     @Column(nullable = false)
     private String gatewayName;

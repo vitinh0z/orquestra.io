@@ -21,6 +21,7 @@ import java.util.UUID;
 public class PaymentEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @JoinColumn(name = "tenent", nullable = false)

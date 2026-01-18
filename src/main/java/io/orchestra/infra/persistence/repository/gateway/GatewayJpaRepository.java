@@ -8,5 +8,5 @@ import java.util.UUID;
 
 public interface GatewayJpaRepository extends JpaRepository<GatewayEntity, UUID> {
 
-    Optional<GatewayEntity> findByTenantIdAndGatewayName(UUID tenentId, String gatewayName);
+    Optional<GatewayEntity> findByTenantIdAndGatewayName(UUID tenantId, String gatewayName);
 }
