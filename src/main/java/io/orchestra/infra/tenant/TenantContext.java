@@ -2,11 +2,13 @@ package io.orchestra.infra.tenant;
 
 import io.orchestra.infra.persistence.entity.TenantEntity;
 
-import java.util.UUID;
-
-public class TenantContext {
+public final class TenantContext {
 
     private static final ThreadLocal<TenantEntity> currentTenant = new ThreadLocal<>();
+
+    private TenantContext(){
+        throw new IllegalStateException("Utility class - use static methods only");
+    }
 
     public static TenantEntity get(){
         return currentTenant.get();
