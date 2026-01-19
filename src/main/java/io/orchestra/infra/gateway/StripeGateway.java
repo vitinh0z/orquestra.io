@@ -14,6 +14,7 @@ public class StripeGateway implements PaymentGateway {
 
         if(payment.getMoney().doubleValue() == 99.99){
             payment.setStatus(PaymentStatus.ERROR);
+            return payment;
         }
 
         payment.setStatus(PaymentStatus.APPROVED);
