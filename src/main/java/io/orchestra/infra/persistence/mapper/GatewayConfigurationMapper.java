@@ -30,6 +30,7 @@ public class GatewayConfigurationMapper {
                     gateway.getTenentId(),
                     gateway.getGatewayName(),
                     encrypted,
+                    gateway.getPriority(),
                     gateway.isActive()
             );
         } catch (JacksonException e) {
@@ -38,6 +39,7 @@ public class GatewayConfigurationMapper {
     }
 
     public Gateway toDomain (GatewayEntity gatewayEntity){
+
         if (gatewayEntity == null) return null;
 
         try {
@@ -53,6 +55,7 @@ public class GatewayConfigurationMapper {
                     gatewayEntity.getTenantId(),
                     gatewayEntity.getGatewayName(),
                     credentials,
+                    gatewayEntity.getPriority(),
                     gatewayEntity.isActive()
             );
 

@@ -26,6 +26,7 @@ public class PaymentPersistenceGateway implements PaymentRepository {
     }
 
 
+
     @Override
     public Optional<Payment> findById(UUID uuid) {
         Optional<PaymentEntity> entity = paymentJpaRepository.findById(uuid);

@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-@Component("fake_gateway")
+@Component("MOCK")
 public class FakeGateway implements PaymentGateway{
 
     @Override

@@ -1,5 +1,6 @@
 package io.orchestra.infra.security;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.BadPaddingException;
@@ -12,9 +13,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 @Service
+@Slf4j
 public class CryptoService {
 
-    private final String SECRET_KEY = "forabolsonaro2026";
+    @org.springframework.beans.factory.annotation.Value("${orchestra.security.crypto-key}")
+    private String SECRET_KEY;
 
     public String encrypted (String data){
 
@@ -38,21 +41,26 @@ public class CryptoService {
 
     public String descrypt(String data){
 
+        if (data == null || data.isEmpty()) {
+            return null;
+        }
+
         try {
             SecretKeySpec key = new SecretKeySpec(SECRET_KEY.getBytes(), "AES");
             Cipher cipher = Cipher.getInstance("AES");
             cipher.init(Cipher.DECRYPT_MODE, key);
 
             byte[] decodedBytes = Base64.getDecoder().decode(data);
+
             return new String(cipher.doFinal(decodedBytes));
 
-        } catch (NoSuchPaddingException
-                 | IllegalBlockSizeException
-                 | NoSuchAlgorithmException
-                 | BadPaddingException
-                 | InvalidKeyException e
-        ){
-            throw new RuntimeException(e);
+        } catch (IllegalArgumentException e) {
+            log.warn("WARN: Texto não é Base64 válido. Usando valor original.");
+            return data;
+
+        } catch (Exception e) {
+            log.warn("WARN: Falha ao descriptografar. Usando valor original.");
+            return data;
         }
     }
 }
