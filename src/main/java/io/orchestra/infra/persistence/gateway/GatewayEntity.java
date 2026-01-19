@@ -9,9 +9,9 @@ import lombok.Setter;
 import java.util.UUID;
 
 
-@Entity
+@Entity(name = "gateways")
 @Table(uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"tenantId", "gatewayName"})
+        @UniqueConstraint(columnNames = {"tenantId", "gatewayName"}, name = "gateways")
 })
 @AllArgsConstructor
 @NoArgsConstructor

@@ -19,6 +19,7 @@ public class Gateway {
     private UUID tenentId;
     private String gatewayName;
     private Map<String, String> credential;
+    private Integer priority = 1;
     private boolean isActive;
 
 }
