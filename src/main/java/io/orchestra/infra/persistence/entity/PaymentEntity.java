@@ -24,7 +24,7 @@ public class PaymentEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @JoinColumn(name = "tenent", nullable = false)
+    @JoinColumn(name = "tenant", nullable = false)
     private UUID tenantId;
 
     @Column(nullable = false)
