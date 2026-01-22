@@ -2,8 +2,10 @@ package io.orchestra.application.usecase;
 
 import io.orchestra.application.dto.PaymentRequestDTO;
 import io.orchestra.application.dto.PaymentResponseDTO;
+import io.orchestra.domain.constant.GatewayConstants;
 import io.orchestra.domain.entity.Gateway;
 import io.orchestra.domain.entity.Payment;
+import io.orchestra.infra.exception.GatewayNotFoundException;
 import io.orchestra.infra.gateway.GatewayRegistry;
 import io.orchestra.infra.gateway.PaymentGateway;
 import io.orchestra.infra.persistence.GatewayPersistenceGateway;
@@ -37,13 +39,17 @@ public class ProcessPaymentUseCase {
 
         Gateway gatewayConfig = gatewayPersistenceGateway
                 .findByTenantIdAndGatewayName(current.getTenantId(), "STRIPE")
-                        .orElseThrow(() -> new RuntimeException("Gatwway Stripe não configurado para o Tenant: " + current.getName()));
+                        .orElseThrow(() -> new GatewayNotFoundException("Gateway " + GatewayConstants.STRIPE  + " não configurado para o Tenant: " + current.getName()));
 
-        log.info("Iniciando pagamento para Tenant [{}] usando Gateway [{}]", current.getName(), gatewayConfig);
+        log.info("Iniciando pagamento para Tenant [{}] usando Gateway [{}]", current.getName(), gatewayConfig.getGatewayName());
 
         PaymentGateway gateway = gatewayRegistry.getGateway(gatewayConfig.getGatewayName());
 
-        String apiKey = gatewayConfig.getCredential().get("secretKey");
+        String apiKey = gatewayConfig.getCredential().get(GatewayConstants.SECRET_KEY_PARAM);
+
+        if (apiKey == null || apiKey.isBlank()){
+            throw new IllegalStateException("Credential not found for gateway");
+        }
 
         Payment toDomain = paymentMapper.toDomain(payment);
 
