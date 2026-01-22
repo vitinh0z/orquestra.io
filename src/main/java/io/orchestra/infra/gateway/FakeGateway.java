@@ -10,7 +10,7 @@ import java.util.UUID;
 public class FakeGateway implements PaymentGateway{
 
     @Override
-    public Payment process(Payment payment) {
+    public Payment process(Payment payment, String apiKey) {
 
         try {
             Thread.sleep(300); // Simulamos latência de 3ms
