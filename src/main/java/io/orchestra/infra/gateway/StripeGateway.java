@@ -6,11 +6,12 @@ import com.stripe.net.RequestOptions;
 import com.stripe.param.PaymentIntentCreateParams;
 import io.orchestra.domain.entity.Payment;
 import io.orchestra.domain.entity.PaymentStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
-
+@Slf4j
 @Component("STRIPE")
 public class StripeGateway implements PaymentGateway {
 
@@ -33,8 +34,9 @@ public class StripeGateway implements PaymentGateway {
             payment.setGatewayTransactionId(paymentIntent.getId());
 
         } catch (StripeException e){
-
+            log.error("ERRO: {}", e.getMessage());
             payment.setStatus(PaymentStatus.ERROR);
+
         }
 
         return payment;
