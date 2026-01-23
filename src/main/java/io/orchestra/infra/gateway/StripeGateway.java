@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 @Component("STRIPE")
 public class StripeGateway implements PaymentGateway {
 
+
     @Override
     public Payment process(Payment payment, String apiKey) {
 
@@ -36,6 +37,7 @@ public class StripeGateway implements PaymentGateway {
         } catch (StripeException e){
             log.error("ERRO: {}", e.getMessage());
             payment.setStatus(PaymentStatus.ERROR);
+
 
         }
 
