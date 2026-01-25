@@ -17,6 +17,7 @@ public class Payment {
 
     private UUID id;
     private UUID tenantId;
+    private String idempotencyKey;
     private BigDecimal money;
     private PaymentStatus status;
     private String currency;

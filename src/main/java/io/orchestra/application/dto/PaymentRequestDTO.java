@@ -10,6 +10,10 @@ import java.util.Map;
 
 public record PaymentRequestDTO(
 
+
+        @NotNull
+        String idempotecyKey,
+
         @NotNull(message = "O valor é obrigatório")
         @DecimalMin(value = "0.01", message = "O valor deve ser maior que zero")
         BigDecimal amount,
