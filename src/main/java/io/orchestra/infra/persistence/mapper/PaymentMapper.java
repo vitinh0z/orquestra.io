@@ -13,6 +13,7 @@ public class PaymentMapper {
         return new Payment(
                 payment.getId(),
                 payment.getTenantId(),
+                payment.getIdempotecyKey(),
                 payment.getAmount(),
                 payment.getStatus(),
                 payment.getCurrency(),
@@ -27,6 +28,7 @@ public class PaymentMapper {
         return new PaymentEntity(
                 payment.getId(),
                 payment.getTenantId(),
+                payment.getIdempotencyKey(),
                 payment.getMoney(),
                 payment.getStatus(),
                 payment.getCurrency(),
