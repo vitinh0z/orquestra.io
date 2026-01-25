@@ -17,6 +17,7 @@ public class PaymentRequestDtoMapper {
         return new Payment(
                 null,
                 null,
+                dto.idempotecyKey(),
                 dto.amount(),
                 PaymentStatus.PENDING,
                 dto.currency(),

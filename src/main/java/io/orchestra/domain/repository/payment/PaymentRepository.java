@@ -9,6 +9,8 @@ public interface PaymentRepository {
 
     Payment save(Payment payment);
 
+    Optional<Payment> findByIdempotecyKey(String idempotecyKey);
+
     Optional<Payment> findById(UUID uuid);
 
 }

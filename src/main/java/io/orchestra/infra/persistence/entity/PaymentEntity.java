@@ -27,6 +27,8 @@ public class PaymentEntity {
     @JoinColumn(name = "tenant", nullable = false)
     private UUID tenantId;
 
+    private String idempotecyKey;
+
     @Column(nullable = false)
     private BigDecimal amount;
 

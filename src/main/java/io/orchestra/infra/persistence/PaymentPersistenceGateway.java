@@ -25,6 +25,12 @@ public class PaymentPersistenceGateway implements PaymentRepository {
         return paymentMapper.toDomain(savePayment);
     }
 
+    @Override
+    public Optional<Payment> findByIdempotecyKey(String idempotecyKey) {
+        Optional<PaymentEntity> entity = paymentJpaRepository.findByIdempotecyKey(idempotecyKey);
+
+        return entity.map(paymentMapper::toDomain);
+    }
 
 
     @Override

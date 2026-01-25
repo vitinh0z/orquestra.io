@@ -18,9 +18,13 @@ import io.orchestra.infra.persistence.mapper.PaymentRequestDtoMapper;
 import io.orchestra.infra.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -34,47 +38,114 @@ public class ProcessPaymentUseCase {
     private final ObjectMapper objectMapper;
     private final ExecutationHistoryPersistenceGateway executationHistoryPersistenceGateway;
     private final PaymentRouter paymentRouter;
+    private final StringRedisTemplate redisTemplate;
 
+    private static final String LOCK_PREFIX = "lock:payment:";
 
-    public PaymentResponseDTO execute(PaymentRequestDTO payment) {
+    public PaymentResponseDTO execute(PaymentRequestDTO paymentRequest) {
+        Optional<PaymentResponseDTO> idempotentResponse = checkIdempotency(paymentRequest);
+        if (idempotentResponse.isPresent()) {
+            return idempotentResponse.get();
+        }
 
-        long start = System.currentTimeMillis();
-        TenantEntity current = TenantContext.get();
-        if (current == null) throw new IllegalStateException("Tenant context is missing");
+        long startTime = System.currentTimeMillis();
+        TenantEntity currentTenant = TenantContext.get();
+        if (currentTenant == null) {
+            throw new IllegalStateException("Tenant context is missing");
+        }
 
-        String targetGatewayName = paymentRouter.chooseGateway(payment);
-
-        Gateway gatewayConfig = gatewayPersistenceGateway
-                .findByTenantIdAndGatewayName(current.getTenantId(), "STRIPE")
-                .orElseThrow(() -> new GatewayNotFoundException("Gateway "
-                        + GatewayConstants.STRIPE + " não configurado para o Tenant: "
-                        + current.getName()
-                )
-                );
-
-        log.info("Iniciando pagamento para Tenant [{}] usando Gateway [{}]", current.getName(), gatewayConfig.getGatewayName());
-
-        PaymentGateway gateway = gatewayRegistry.getGateway(gatewayConfig.getGatewayName());
-        String apiKey = gatewayConfig.getCredential().get(GatewayConstants.SECRET_KEY_PARAM);
-        Payment paymentDomain = paymentMapper.toDomain(payment);
-
+        String idempotencyKey = LOCK_PREFIX + paymentRequest.idempotecyKey();
         Payment resultPayment = null;
-        String erroMsg = null;
-        PaymentStatus status = PaymentStatus.ERROR;
+        String errorMessage = null;
+        String targetGatewayName = null;
 
         try {
-            resultPayment = gateway.process(paymentDomain, apiKey);
-            status = resultPayment.getStatus();
+            acquirePaymentLock(idempotencyKey);
 
-            return paymentMapper.toDto(paymentPersistenceGateway.save(resultPayment));
+            Gateway gatewayConfig = findAndConfigureGateway(paymentRequest);
+            targetGatewayName = gatewayConfig.getGatewayName();
+            log.info("Iniciando pagamento para Tenant [{}] usando Gateway [{}]", currentTenant.getName(), targetGatewayName);
+
+            PaymentGateway gateway = gatewayRegistry.getGateway(targetGatewayName);
+            String apiKey = gatewayConfig.getCredential().get(GatewayConstants.SECRET_KEY_PARAM);
+            Payment paymentToProcess = paymentMapper.toDomain(paymentRequest);
+            paymentToProcess.setStatus(PaymentStatus.PENDING);
+
+            resultPayment = processPayment(gateway, apiKey, paymentToProcess);
+
+            return handleSuccessfulPayment(resultPayment, idempotencyKey);
 
         } catch (Exception e) {
-            erroMsg = e.getMessage();
+            log.error("Falha ao processar pagamento para a chave de idempotência {}: {}", idempotencyKey, e.getMessage());
+            errorMessage = e.getMessage();
+            redisTemplate.delete(idempotencyKey);
             throw e;
-
         } finally {
-            saveAudit(current, targetGatewayName , payment, resultPayment, status, erroMsg, start);
+            saveAudit(currentTenant, targetGatewayName, paymentRequest, resultPayment, resultPayment != null ? resultPayment.getStatus() : PaymentStatus.ERROR, errorMessage, startTime);
         }
+    }
+
+    private Optional<PaymentResponseDTO> checkIdempotency(PaymentRequestDTO payment) {
+        Optional<Payment> existingPayment = paymentPersistenceGateway.findByIdempotecyKey(payment.idempotecyKey());
+        if (existingPayment.isPresent()) {
+            log.info("Chave de idempotência {} já processada e encontrada no banco de dados.", payment.idempotecyKey());
+            return Optional.of(paymentMapper.toDto(existingPayment.get()));
+        }
+
+        String cachedResponse = redisTemplate.opsForValue().get(LOCK_PREFIX + payment.idempotecyKey());
+        if (cachedResponse != null) {
+            if ("LOCKED".equals(cachedResponse)) {
+                throw new IllegalStateException("Pagamento já está em processamento.");
+            }
+            try {
+                log.info("Resposta encontrada no cache para a chave de idempotência {}.", payment.idempotecyKey());
+                return Optional.of(objectMapper.readValue(cachedResponse, PaymentResponseDTO.class));
+            } catch (JacksonException e) {
+                log.error("Erro ao desserializar resposta do cache: {}", e.getMessage());
+            }
+        }
+        return Optional.empty();
+    }
+
+    private void acquirePaymentLock(String idempotencyKey) {
+        Boolean lockAcquired = redisTemplate.opsForValue().setIfAbsent(idempotencyKey, "LOCKED", Duration.ofHours(24));
+        if (!Boolean.TRUE.equals(lockAcquired)) {
+            throw new IllegalStateException("Pagamento já está em processamento.");
+        }
+    }
+
+    private Gateway findAndConfigureGateway(PaymentRequestDTO payment) {
+        String targetGatewayName = paymentRouter.chooseGateway(payment);
+        TenantEntity currentTenant = TenantContext.get();
+
+        return gatewayPersistenceGateway
+                .findByTenantIdAndGatewayName(currentTenant.getTenantId(), targetGatewayName)
+                .orElseThrow(() -> new GatewayNotFoundException("Gateway "
+                        + targetGatewayName + " não configurado para o Tenant: "
+                        + currentTenant.getName()
+                ));
+    }
+
+    private Payment processPayment(PaymentGateway gateway, String apiKey, Payment paymentDomain) {
+        try {
+            return gateway.process(paymentDomain, apiKey);
+        } catch (Exception gatewayError) {
+            log.error("Falha ao realizar pagamento no gateway: {}", gatewayError.getMessage());
+            throw gatewayError;
+        }
+    }
+
+    private PaymentResponseDTO handleSuccessfulPayment(Payment payment, String idempotencyKey) {
+        Payment savedPayment = paymentPersistenceGateway.save(payment);
+        PaymentResponseDTO paymentDto = paymentMapper.toDto(savedPayment);
+
+        try {
+            String jsonResponse = objectMapper.writeValueAsString(paymentDto);
+            redisTemplate.opsForValue().set(idempotencyKey, jsonResponse, Duration.ofHours(24));
+        } catch (Exception e) {
+            log.error("Falha ao cachear a resposta do pagamento: {}", e.getMessage());
+        }
+        return paymentDto;
     }
 
     private void saveAudit(TenantEntity tenant, String gateway, PaymentRequestDTO req, Payment res, PaymentStatus status, String error, long start) {
@@ -88,7 +159,7 @@ public class ProcessPaymentUseCase {
             );
 
         } catch (Exception e) {
-            log.warn("Falha na auditoria: {}", e.getMessage());
+            log.warn("Falha ao salvar log de auditoria: {}", e.getMessage());
         }
     }
 }
