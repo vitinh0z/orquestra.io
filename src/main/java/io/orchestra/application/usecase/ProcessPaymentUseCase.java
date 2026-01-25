@@ -20,8 +20,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -100,7 +100,7 @@ public class ProcessPaymentUseCase {
             try {
                 log.info("Resposta encontrada no cache para a chave de idempotência {}.", payment.idempotecyKey());
                 return Optional.of(objectMapper.readValue(cachedResponse, PaymentResponseDTO.class));
-            } catch (JacksonException e) {
+            } catch (JsonProcessingException e) {
                 log.error("Erro ao desserializar resposta do cache: {}", e.getMessage());
             }
         }
