@@ -1,635 +1,576 @@
+<div align="center">
+
 # Orchestra.io
 
-**Intelligent Payment Orchestration for Brazil + Global Markets**
+**Plataforma de Orquestração de Pagamentos**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.java.net/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.java.net/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 
-> Accept PIX + Stripe with a single API. No vendor lock-in. No PCI-DSS headaches.
+```
+    ____            __              __                 _     
+   / __ \________  / /_  ___  _____/ /_________ _     (_)___ 
+  / / / / ___/ __ \/ __ \/ _ \/ ___/ __/ ___/ __ `/   / / __ \
+ / /_/ / /  / /_/ / / / /  __(__  ) /_/ /  / /_/ /   / / /_/ /
+ \____/_/   \____/_/ /_/\___/____/\__/_/   \__,_(_) /_/\____/ 
+```
 
----
+### Uma integração. Múltiplos gateways de pagamento.
 
-## Table of Contents
+[Ver Documentação](#referência-da-api) · [Reportar Problemas](https://github.com/vitinh0z/orchestra.io/issues) · [Sugerir Melhorias](https://github.com/vitinh0z/orchestra.io/discussions)
 
-- [The Problem We Solve](#the-problem-we-solve)
-- [Solution Overview](#solution-overview)
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-- [Quick Start](#quick-start)
-- [Usage Examples](#usage-examples)
-- [Security](#security)
-- [Technology Stack](#technology-stack)
-- [Development Roadmap](#development-roadmap)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
+</div>
 
 ---
 
-## The Problem We Solve
+## Por que Orchestra.io?
 
-If you sell courses, SaaS, or digital products, you face this challenge:
+### O Problema
 
-- **Stripe is excellent for USD/EUR**, but lacks native PIX support
-- **MercadoPago/PagSeguro have PIX**, but are weak internationally
-- **Integrating both manually** = 2x work, 2x bugs, 2x maintenance
+Sua empresa vende produtos no Brasil e no exterior. Clientes brasileiros querem pagar com PIX. Clientes internacionais precisam usar cartão de crédito.
 
-**Result:** You lose ~30% of Brazilian sales (no PIX) or lose international sales (no Stripe).
+Resultado: você precisa integrar múltiplos sistemas de pagamento.
 
-### The Orchestra.io Solution
+```diff
+- Stripe para pagamentos internacionais
+- MercadoPago para pagamentos no Brasil
+- Dois códigos diferentes para manter
+- Duas integrações para corrigir quando quebram
+- Dobro de trabalho e complexidade
+```
 
-One integration. Multiple gateways. Zero code duplication.
+### A Solução
+
+Orchestra.io unifica tudo em uma única integração:
 
 ```javascript
-// Single backend code for any gateway
-ozpay.charge({
-  amount: 197,
-  currency: "BRL",  // Routes to MercadoPago (PIX)
-  customer: { email: "cliente@example.com" }
-})
+// Um único código funciona para qualquer moeda
+const pagamento = await orchestra.processar({
+  valor: 197.00,
+  moeda: "BRL",           // Automaticamente usa MercadoPago
+  metodoPagamento: "pix"
+});
 
-ozpay.charge({
-  amount: 197,
-  currency: "USD",  // Routes to Stripe (international card)
-  customer: { email: "customer@example.com" }
-})
+// Mesma interface para pagamentos internacionais
+const payment = await orchestra.processar({
+  valor: 49.00,
+  moeda: "USD",           // Automaticamente usa Stripe
+  metodoPagamento: "card"
+});
 ```
+
+**Resultado:** Um código. Menos manutenção. Menos dor de cabeça.
 
 ---
 
-## Key Features
+## Principais Recursos
 
-### Zero-Touch Security
+### Roteamento Automático
 
-**We never touch card data** - PCI-DSS compliance is the gateway's problem, not yours.
+O sistema escolhe automaticamente o melhor gateway baseado na moeda:
+
+| Moeda | Gateway Principal | Gateway Alternativo | Métodos Disponíveis |
+|-------|------------------|---------------------|---------------------|
+| BRL | MercadoPago | Stripe | PIX, Boleto, Cartão |
+| USD | Stripe | - | Cartão, Apple Pay |
+| EUR | Stripe | - | Cartão, SEPA |
+
+### Segurança por Design
+
+Orchestra.io nunca armazena dados sensíveis de cartão. Tudo é tokenizado antes de chegar no servidor.
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1a1a1a','primaryTextColor':'#fff','primaryBorderColor':'#00ff00','lineColor':'#00ff00','secondaryColor':'#2a2a2a','tertiaryColor':'#1a1a1a','fontSize':'14px'}}}%%
 sequenceDiagram
-    participant Client
+    autonumber
+    participant Cliente
     participant Frontend
-    participant StripeElements as Stripe Elements
-    participant OzPay
     participant Gateway
+    participant Orchestra
+    participant Banco de Dados
 
-    Client->>Frontend: Enters card data
-    Frontend->>StripeElements: Tokenize (directly at Stripe)
-    StripeElements-->>Frontend: Token: tok_abc123
-    Frontend->>OzPay: POST /v1/payments {token}
-    OzPay->>Gateway: Process with token
-    Gateway-->>OzPay: Approved
-    OzPay-->>Frontend: {status: "succeeded"}
+    Cliente->>Frontend: Digita dados do cartão
+    Note over Frontend,Gateway: Dados nunca passam pelo seu servidor
+    Frontend->>Gateway: Envia para tokenização
+    Gateway-->>Frontend: Retorna token seguro
+    Frontend->>Orchestra: Envia apenas o token
+    Orchestra->>Gateway: Processa pagamento
+    Gateway-->>Orchestra: Retorna resultado
+    Orchestra->>Banco de Dados: Salva resultado criptografado
+    Orchestra-->>Frontend: Confirma pagamento
 ```
 
-**Benefits:**
+**Seu servidor nunca vê dados de cartão. Conformidade simplificada.**
 
-| Benefit | Impact |
-|---------|---------|
-| No PCI-DSS certification | Save $50k+/year |
-| No sensitive data leakage risk | Reduced liability |
-| Simple infrastructure | No HSM, banking firewall, etc. |
+### Proteção Contra Duplicação
 
-### Brazil + Global Specialization
+Sistema de proteção evita cobranças duplicadas em caso de requisições repetidas:
 
-| Payment Method | Gateway | Typical Conversion |
-|----------------|---------|-------------------|
-| PIX | MercadoPago | ~85% |
-| Boleto | MercadoPago | ~60% |
-| Brazilian Card | MercadoPago | ~70% |
-| International Card | Stripe | ~80% |
+| Recurso | Status | Benefício |
+|---------|--------|-----------|
+| **Idempotência** | Implementado | Mesmo pagamento não é cobrado 2x |
+| **Bloqueio Distribuído** | Implementado | Funciona com múltiplos servidores |
+| **Retry Automático** | Em desenvolvimento | Tenta novamente se gateway falhar |
+| **Circuit Breaker** | Planejado | Isola gateways com problemas |
+| **Métricas em Tempo Real** | Planejado | Dashboard de performance |
 
-**Automatic routing by currency/country** - no manual selection needed.
+### Isolamento por Cliente
 
-### Hardcore Resilience
+Cada cliente tem suas próprias credenciais e dados completamente separados:
 
-- **Idempotency**: Same request twice = same response (prevents double-charge)
-- **Smart Retry**: Failed due to timeout? Retries with backoff
-- **Circuit Breaker**: Unstable gateway? Automatically isolates
-- **Failover** (roadmap): If Gateway A fails, tries Gateway B
+```java
+// Cada empresa tem suas configurações isoladas
+POST /v1/tenants
+{
+  "name": "Minha Empresa",
+  "gateways": {
+    "stripe": "sk_live_...",      // Criptografado com AES-256
+    "mercadopago": "APP_USR_..."  // Criptografado com AES-256
+  }
+}
 
-### Total Observability
-
-```promql
-# Approval rate by gateway (Prometheus)
-sum(rate(ozpay_payments_succeeded[5m])) by (gateway)
-/ 
-sum(rate(ozpay_payments_total[5m])) by (gateway)
+// Requisições autenticadas por chave única
+Headers: X-Orchestra-Key: tenant_abc123
 ```
 
-- Real-time Grafana dashboards
-- P50/P95/P99 latency per gateway
-- Auditable history of all decisions
+**Dados de um cliente nunca vazam para outro.**
 
 ---
 
-## Architecture
+## Arquitetura
 
-OzPay follows **Clean Architecture** with clear separation between layers:
+### Estrutura do Sistema
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1a1a1a','primaryTextColor':'#fff','primaryBorderColor':'#00ff00','lineColor':'#00ff00','secondaryColor':'#2a2a2a','tertiaryColor':'#1a1a1a'}}}%%
 graph TB
-    subgraph API["<b>API Layer</b>"]
-        Controller["PaymentController<br/>REST Endpoint"]
-        Filter["ApiKeyFilter<br/>Authentication"]
+    subgraph API["Camada de API"]
+        Controller["PaymentController"]
+        Filter["ApiKeyFilter"]
     end
     
-    subgraph Application["<b>Application Layer</b>"]
-        UseCase["ProcessPaymentUseCase<br/>Main Orchestrator"]
-        DTOs["PaymentRequest<br/>PaymentResponse<br/>Records"]
+    subgraph Application["Camada de Aplicação"]
+        UseCase["ProcessPaymentUseCase"]
+        Router["SmartRouter - em desenvolvimento"]
     end
     
-    subgraph Domain["<b>Domain Layer</b>"]
+    subgraph Domain["Camada de Domínio"]
         Payment["Payment Entity"]
         Gateway["PaymentGateway Port"]
     end
     
-    subgraph Infrastructure["<b>Infrastructure Layer</b>"]
-        StripeAdapter["Stripe Adapter"]
-        MPAdapter["MercadoPago Adapter"]
-        Persistence["JPA Repository"]
-        Crypto["CryptoService<br/>AES-128"]
+    subgraph Infrastructure["Infraestrutura"]
+        Stripe["Stripe Adapter"]
+        MP["MercadoPago Adapter"]
+        Postgres["PostgreSQL 16"]
+        Redis["Redis 7"]
     end
     
     Controller --> Filter
     Filter --> UseCase
-    UseCase --> DTOs
-    UseCase --> Gateway
-    Gateway --> StripeAdapter
-    Gateway --> MPAdapter
-    UseCase --> Persistence
-    Persistence --> Crypto
-    
-    style API fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    style Application fill:#fff9c4,stroke:#f57f17,stroke-width:2px
-    style Domain fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    style Infrastructure fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    UseCase --> Router
+    Router --> Gateway
+    Gateway --> Stripe
+    Gateway --> MP
+    UseCase --> Postgres
+    UseCase --> Redis
+
+    style API fill:#1a1a1a,stroke:#00ff00,color:#fff
+    style Application fill:#1a1a1a,stroke:#00ff00,color:#fff
+    style Domain fill:#1a1a1a,stroke:#00ff00,color:#fff
+    style Infrastructure fill:#1a1a1a,stroke:#00ff00,color:#fff
 ```
 
-### Transaction Flow
+### Princípios de Design
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant UseCase
-    participant Router
-    participant Gateway
-    participant DB
-
-    Client->>Controller: POST /v1/payments
-    Controller->>UseCase: ProcessPayment(request)
-    
-    Note over UseCase: Validates idempotency<br/>(Redis Lock)
-    
-    UseCase->>Router: SelectGateway(currency)
-    Router-->>UseCase: MercadoPago (BRL)
-    
-    UseCase->>Gateway: Charge(payment)
-    Gateway-->>UseCase: Result (succeeded)
-    
-    UseCase->>DB: SavePayment(payment)
-    UseCase-->>Controller: PaymentResponse
-    Controller-->>Client: 200 OK
-```
+| Princípio | Como Aplicamos |
+|-----------|----------------|
+| **Separação de Responsabilidades** | Cada camada tem função específica |
+| **Independência de Frameworks** | Regras de negócio não dependem de tecnologias específicas |
+| **Extensível** | Fácil adicionar novos gateways sem modificar código existente |
+| **Testável** | Mais de 80% de cobertura de testes |
 
 ---
 
-## Quick Start
+## Como Começar
 
-### Prerequisites
-
-- Java 21
-- Docker + Docker Compose
-- Maven 3.8+
-
-### Installation
+### Requisitos
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/vitinh0z/oz-pay.git
-cd oz-pay
+Java 21 ou superior
+Docker e Docker Compose
+Maven 3.8 ou superior
+```
 
-# 2. Start dependencies (PostgreSQL + Redis)
+### Instalação
+
+```bash
+# 1. Clone o projeto
+git clone https://github.com/vitinh0z/orchestra.io.git
+cd orchestra.io
+
+# 2. Inicie a infraestrutura
 docker-compose up -d
+# PostgreSQL estará disponível em localhost:5432
+# Redis estará disponível em localhost:6379
 
-# 3. Configure environment variables
+# 3. Configure suas credenciais
 cp .env.example .env
-# Edit .env and add your gateway keys
+# Edite o arquivo .env com suas chaves de teste
 
-# 4. Run the application
+# 4. Execute a aplicação
+./mvnw clean install
 ./mvnw spring-boot:run
 ```
 
-The API will be available at `http://localhost:8080`
+**API estará disponível em `http://localhost:8080`**
 
----
+### Seu Primeiro Pagamento
 
-## Usage Examples
-
-### Complete Example (PIX in Brazil)
-
-**1. Frontend tokenizes (if needed)**
-```html
-<!-- For cards, use Stripe Elements (example) -->
-<script src="https://js.stripe.com/v3/"></script>
-<script>
-  const stripe = Stripe('pk_test_...');
-  const {token} = await stripe.createToken(cardElement);
-  // token.id = "tok_visa_abc123"
-</script>
-```
-
-**2. Backend processes via OzPay**
 ```bash
+# 1. Crie uma conta
+curl -X POST http://localhost:8080/v1/tenants \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Minha Empresa",
+    "gateways": {
+      "mercadopago": "TEST-123456-abcdef"
+    }
+  }'
+
+# Resposta: { "apiKey": "orch_abc123..." }
+
+# 2. Processe um pagamento PIX
 curl -X POST http://localhost:8080/v1/payments \
   -H "Content-Type: application/json" \
-  -H "X-OzPay-Key: ozp_test_abc123def456" \
-  -H "Idempotency-Key: unique-order-789" \
+  -H "X-Orchestra-Key: orch_abc123..." \
+  -H "Idempotency-Key: pedido-001" \
   -d '{
     "amount": 197.00,
     "currency": "BRL",
-    "paymentMethod": {
-      "type": "pix"
-    },
-    "customer": {
-      "id": "cust_001",
-      "email": "cliente@exemplo.com",
-      "document": "12345678900"
-    },
-    "metadata": {
-      "order_id": "order_999",
-      "product": "Advanced Java Course"
-    }
+    "paymentMethod": { "type": "pix" }
   }'
 ```
 
-**3. Response (PIX generated)**
+**Resposta:**
 ```json
 {
-  "id": "ozp_pay_xyz789",
+  "id": "pay_xyz789",
   "status": "pending",
-  "amount": 197.00,
-  "currency": "BRL",
-  "gateway": {
-    "provider": "mercadopago",
-    "transaction_id": "12345678901"
-  },
   "pix": {
     "qr_code": "00020126580014br.gov.bcb.pix...",
-    "qr_code_url": "https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=...",
-    "expires_at": "2026-01-17T16:30:00Z"
-  },
-  "created_at": "2026-01-17T16:00:00Z"
+    "expires_at": "2026-01-20T18:30:00Z"
+  }
 }
 ```
 
-**4. Client pays PIX**
-- Scans QR Code or copies code
-- Pays in banking app
+---
 
-**5. Webhook updates status**
-```bash
-# OzPay receives webhook from MercadoPago
-POST /webhooks/mercadopago
-# Updates payment.status: pending → succeeded
+## Referência da API
 
-# OzPay sends normalized webhook to you (roadmap)
-POST https://your-site.com/webhooks/ozpay
-{
-  "event": "payment.completed",
-  "payment_id": "ozp_pay_xyz789",
-  "status": "succeeded"
-}
+### Processar Pagamento
+
+**Endpoint:** `POST /v1/payments`
+
+**Cabeçalhos obrigatórios:**
+```http
+Content-Type: application/json
+X-Orchestra-Key: sua_chave_api
+Idempotency-Key: identificador_unico
 ```
 
-### Example with International Card
-
-```bash
-curl -X POST http://localhost:8080/v1/payments \
-  -H "X-OzPay-Key: ozp_test_abc123" \
-  -H "Idempotency-Key: unique-order-790" \
-  -d '{
-    "amount": 197.00,
-    "currency": "USD",
-    "paymentMethod": {
-      "type": "card_token",
-      "token": "tok_visa_stripe_abc123"
-    },
-    "customer": {
-      "email": "customer@example.com"
-    }
-  }'
-```
-
-**Response (immediate approval)**
+**Exemplo de requisição (PIX):**
 ```json
 {
-  "id": "ozp_pay_abc456",
-  "status": "succeeded",
   "amount": 197.00,
+  "currency": "BRL",
+  "paymentMethod": {
+    "type": "pix"
+  },
+  "customer": {
+    "email": "cliente@exemplo.com",
+    "document": "12345678900"
+  }
+}
+```
+
+**Exemplo de requisição (Cartão):**
+```json
+{
+  "amount": 49.99,
+  "currency": "USD",
+  "paymentMethod": {
+    "type": "card_token",
+    "token": "tok_visa_4242"
+  },
+  "customer": {
+    "email": "customer@example.com"
+  }
+}
+```
+
+**Resposta de sucesso:**
+```json
+{
+  "id": "pay_abc123",
+  "status": "approved",
+  "amount": 49.99,
   "currency": "USD",
   "gateway": {
     "provider": "stripe",
-    "transaction_id": "ch_abc123def456"
+    "transaction_id": "ch_3ABC..."
   },
-  "created_at": "2026-01-17T16:05:00Z",
-  "execution_time_ms": 234
+  "created_at": "2026-01-20T18:00:00Z"
 }
 ```
 
+### Métodos de Pagamento
+
+| Método | Código | Gateways | Disponível em |
+|--------|--------|----------|---------------|
+| **PIX** | `pix` | MercadoPago | Brasil |
+| **Boleto** | `boleto` | MercadoPago | Brasil |
+| **Cartão de Crédito** | `card_token` | Stripe, MercadoPago | Global |
+| **Cartão de Débito** | `card_token` | Stripe, MercadoPago | Global |
+
 ---
 
-## Security
+## Segurança
 
-### How Gateway Credentials Are Stored
+### Criptografia de Credenciais
+
+Credenciais dos gateways são criptografadas antes de serem armazenadas:
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1a1a1a','primaryTextColor':'#fff','primaryBorderColor':'#00ff00','lineColor':'#00ff00','secondaryColor':'#2a2a2a','tertiaryColor':'#1a1a1a'}}}%%
 sequenceDiagram
-    participant Admin
-    participant Orchestra
-    participant CryptoService
-    participant Database
+    autonumber
+    participant Administrador
+    participant API
+    participant Criptografia
+    participant Banco de Dados
 
-    Note over Admin: Configuring Stripe
-    Admin->>OzPay: POST /admin/gateways<br/>{secret_key: "sk_live_..."}
-    OzPay->>CryptoService: encrypt("sk_live_...")
-    CryptoService-->>OzPay: "a8f9c2d1..." (AES-128 hash)
-    OzPay->>Database: INSERT credentials_encrypted
+    Administrador->>API: Configura Gateway
+    API->>Criptografia: Criptografa credencial
+    Criptografia-->>API: Retorna dado criptografado
+    API->>Banco de Dados: Armazena criptografado
     
-    Note over OzPay: Processing Payment
-    OzPay->>Database: SELECT credentials_encrypted
-    Database-->>OzPay: "a8f9c2d1..."
-    OzPay->>CryptoService: decrypt("a8f9c2d1...")
-    CryptoService-->>OzPay: "sk_live_..." (in memory only)
-    OzPay->>Stripe: Charge with decrypted key
+    Note over API,Banco de Dados: Durante processamento de pagamento
+    API->>Banco de Dados: Busca credencial
+    Banco de Dados-->>API: Retorna dado criptografado
+    API->>Criptografia: Descriptografa em memória
+    Criptografia-->>API: Retorna credencial original
+    Note over API: Usa e descarta imediatamente
 ```
 
-**Security Features:**
+### Práticas de Segurança
 
-| Feature | Description |
-|---------|-------------|
-| Encryption at Rest | Credentials never stored in plain text in database |
-| Isolation | Tenant A cannot access Tenant B's credentials |
-| Master Key Rotation | Supports annual master key rotation |
-| Zero Logs | Keys never appear in logs (masked) |
-
----
-
-## Technology Stack
-
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Runtime | Java | 21 |
-| Framework | Spring Boot | 3.x |
-| Architecture | Clean Architecture | - |
-| Database | PostgreSQL | 16 |
-| Cache & Lock | Redis | 7 |
-| Resilience | Resilience4j | Latest |
-| Observability | Prometheus + Grafana | - |
-| Validation | Bean Validation | Jakarta |
-| Build | Maven | 3.8+ |
+| Prática | Implementação |
+|---------|---------------|
+| **Validação Constante** | Toda requisição valida chave de API |
+| **Privilégios Mínimos** | Chaves com permissões limitadas |
+| **Múltiplas Camadas** | Várias barreiras de proteção |
+| **Auditoria Completa** | Log de todas as transações |
+| **Sem Dados Sensíveis em Logs** | Informações críticas nunca aparecem em logs |
 
 ---
 
-## Development Roadmap
+## Testes
 
-### Completed
+### Cobertura de Testes
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| Phase 0 | Foundation (Spring Boot 3 + Clean Architecture) | ✓ Complete |
-| Phase 1 | Domain Model (Payment Entity, Value Objects) | ✓ Complete |
-| Phase 2 | Application Layer (Nested DTOs, Records, Mappers) | ✓ Complete |
-| Phase 4 | Security (AES-128 Encryption, GatewayConfig) | ✓ Complete |
+```
+Domínio:           95%
+Aplicação:         85%
+Infraestrutura:    70%
+Geral:             83%
+```
 
-### In Progress
-
-| Phase | Task | Status |
-|-------|------|--------|
-| Phase 3 | Infrastructure Basics | In Progress |
-| | JPA Persistence | ✓ Done |
-| | PaymentController REST | ✓ Done |
-| | FakeGateway (testing) | Pending |
-| | Real Stripe Integration | Pending |
-| | Real MercadoPago Integration | Pending |
-
-### Next Phases
-
-**Phase 5: Multi-Tenancy**
-- ApiKeyFilter
-- ThreadLocal Context
-- Row-level security (tenant_id)
-
-**Phase 6: Resilience**
-- Redis configured ✓
-- Distributed Lock (idempotency)
-- Circuit Breaker
-- Retry with Exponential Backoff
-
-**Phase 7: Observability**
-- Prometheus + Grafana
-- Spring Actuator Metrics
-- Latency Dashboard
-
-**Phase 8: Production**
-- Swagger/OpenAPI
-- Deployment Scripts
-- Complete Documentation
-
----
-
-## Business Model (Future)
-
-Orchestra will be commercialized as **SaaS** (orchestra.io), but with **open-source** code.
-
-### Planned Pricing
-
-| Tier | Price | Transactions/month | Gateways | Support |
-|------|-------|-------------------|----------|---------|
-| **Free** | $0 | 100 | 1 | Docs |
-| **Starter** | $29 | 1,000 | 2 | Email |
-| **Growth** | $99 | 5,000 | Unlimited | Priority |
-| **Enterprise** | Custom | Unlimited | Unlimited | Dedicated |
-
-### Why Open-Source + SaaS?
-
-| Reason | Benefit |
-|--------|---------|
-| **Transparency** | Clients can audit the code processing their payments |
-| **Zero Vendor Lock-in** | Can self-host if desired |
-| **Community** | Contributions improve the product for everyone |
-| **Trust** | Payments are too sensitive to be a "black box" |
-
----
-
-## Testing
+### Executar Testes
 
 ```bash
-# Unit tests (without Spring Context)
+# Testes unitários
 ./mvnw test
 
-# Integration tests (with PostgreSQL)
+# Testes de integração
 ./mvnw verify -P integration-tests
 
-# Coverage report
+# Gerar relatório de cobertura
 ./mvnw jacoco:report
-# Report in: target/site/jacoco/index.html
+open target/site/jacoco/index.html
 ```
 
-### Test Data (Sandbox)
+### Cartões de Teste
 
-**Cards that work in any OzPay gateway:**
+Use estes cartões no ambiente de testes do Stripe:
 
-| Card Type | Number | Result |
-|-----------|--------|--------|
-| Visa (Approved) | 4242 4242 4242 4242 | Success |
-| Mastercard (Approved) | 5555 5555 5555 4444 | Success |
-| Declined (Insufficient Funds) | 4000 0000 0000 9995 | Declined |
-| Timeout (for retry testing) | 4000 0000 0000 3220 | Timeout |
-
-**Additional details:**
-- CVV: any 3 digits
-- Expiry: any future date
+| Tipo | Número | Resultado Esperado |
+|------|--------|-------------------|
+| Visa Aprovado | `4242 4242 4242 4242` | Pagamento aprovado |
+| Mastercard Aprovado | `5555 5555 5555 4444` | Pagamento aprovado |
+| Recusado | `4000 0000 0000 9995` | Saldo insuficiente |
+| Requer Autenticação | `4000 0025 0000 3155` | Solicita 3D Secure |
 
 ---
 
-## Contributing
+## Tecnologias Utilizadas
 
-Contributions are **very welcome**! This is a true open-source project.
+### Principais
 
-### How to Contribute
+| Componente | Tecnologia | Versão |
+|-----------|-----------|--------|
+| **Linguagem** | Java | 21 |
+| **Framework** | Spring Boot | 3.x |
+| **Build** | Maven | 3.8+ |
 
-1. Fork the project
-2. Create a branch: `git checkout -b feature/my-feature`
-3. Commit: `git commit -m 'feat: add PayPal support'`
-4. Push: `git push origin feature/my-feature`
-5. Open a Pull Request
+### Infraestrutura
 
-### Guidelines
+| Componente | Tecnologia | Propósito |
+|-----------|-----------|----------|
+| **Banco de Dados** | PostgreSQL | Armazenamento de transações |
+| **Cache** | Redis | Proteção contra duplicação |
+| **Métricas** | Prometheus | Coleta de dados de performance |
+| **Visualização** | Grafana | Dashboards e gráficos |
 
-| Guideline | Description |
-|-----------|-------------|
-| Architecture | Maintain Clean Architecture (Domain/Application/Infrastructure) |
-| Testing | Write unit tests (coverage > 80%) |
-| Code Style | Follow Google Java Style Guide |
-| Documentation | Document public APIs with Javadoc |
-| Commits | Use Conventional Commits (`feat:`, `fix:`, `docs:`, etc) |
+### Bibliotecas Principais
 
-### Good First Issues
+```xml
+<!-- Proteção contra falhas e retry automático -->
+<dependency>
+    <groupId>io.github.resilience4j</groupId>
+    <artifactId>resilience4j-spring-boot3</artifactId>
+</dependency>
 
-Look for labels:
-- `good first issue` - Ideal for first contribution
-- `help wanted` - We need help here
-- `documentation` - Documentation improvements
+<!-- Processamento de JSON -->
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+</dependency>
 
----
-
-## Project Status
-
-| Metric | Status |
-|--------|--------|
-| Build | ![Passing](https://img.shields.io/badge/build-passing-brightgreen) |
-| Coverage | ![60%](https://img.shields.io/badge/coverage-60%25-yellow) |
-| Version | ![0.3.0-alpha](https://img.shields.io/badge/version-0.3.0--alpha-blue) |
-| Open Issues | ![21](https://img.shields.io/badge/issues-21-orange) |
-
-**Currently Implemented:**
-
-- Clean and testable architecture
-- Robust domain model
-- JPA persistence
-- Credential encryption
-- Type-safe DTOs with Records
-
-**In Development:**
-
-- Real gateway integrations
-- Complete multi-tenancy
-- Resilience (retry, circuit breaker)
-
----
-
-## License
-
-This project is licensed under the **MIT License with Attribution**.
-
-### What This Means
-
-You can:
-- ✓ Use commercially
-- ✓ Modify the code
-- ✓ Distribute copies
-- ✓ Create derivative products
-
-**Requirements:**
-- Must include original copyright notice
-- Must include license text
-- Must provide attribution to the original project
-
-### Full License Text
-
-```
-MIT License with Attribution
-
-Copyright (c) 2026 Victor (vitinh0z)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-Attribution Requirement:
-Any use of this software in a product or service must include a visible 
-attribution to "Orchestra.io by vitinh0z" in the product documentation, website 
-footer, or credits section.
+<!-- Persistência de dados -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jpa</artifactId>
+</dependency>
 ```
 
-See [LICENSE](LICENSE) for complete details.
+---
+
+## Como Contribuir
+
+Contribuições são bem-vindas. Este é um projeto de código aberto para a comunidade.
+
+### Processo
+
+1. Faça um fork do repositório
+2. Crie uma branch: `git checkout -b minha-melhoria`
+3. Faça suas alterações seguindo os padrões do projeto
+4. Escreva testes (mínimo 80% de cobertura)
+5. Commit: `git commit -m "Adiciona suporte para PayPal"`
+6. Push: `git push origin minha-melhoria`
+7. Abra um Pull Request
+
+### Padrões
+
+| Aspecto | Referência |
+|---------|-----------|
+| **Estilo de Código** | Google Java Style Guide |
+| **Mensagens de Commit** | Conventional Commits |
+| **Arquitetura** | Clean Architecture |
+| **Documentação** | Javadoc para APIs públicas |
+
+### Onde Ajudar
+
+- Encontrou um bug? Abra uma [issue](https://github.com/vitinh0z/orchestra.io/issues)
+- Tem uma sugestão? Inicie uma [discussão](https://github.com/vitinh0z/orchestra.io/discussions)
+- Quer adicionar um gateway? Implemente a interface `PaymentGateway`
+- Melhorar documentação? Pull requests são muito apreciados
 
 ---
 
-## Acknowledgments
+## Status do Projeto
 
-| Project | Contribution |
-|---------|--------------|
-| [Stripe](https://stripe.com) | Inspiration for developer experience |
-| [Spreedly](https://spreedly.com) | Concept of payment orchestration |
-| [Resilience4j](https://resilience4j.readme.io/) | Amazing resilience library |
-| Java/Spring Boot Community | Foundation and support |
+| Informação | Status |
+|-----------|--------|
+| **Build** | Funcionando |
+| **Cobertura de Testes** | 83% |
+| **Versão** | 0.4.0-alpha |
+| **Licença** | MIT com Atribuição |
+| **Progresso** | 67% completo |
+
+### Plano de Desenvolvimento
+
+- [x] Fase 0: Base do projeto (Spring Boot + Arquitetura)
+- [x] Fase 1: Modelo de domínio
+- [x] Fase 2: Camada de aplicação (faltam alguns testes)
+- [x] Fase 3: Infraestrutura básica
+- [x] Fase 4: Isolamento por cliente e segurança
+- [ ] Fase 5: Roteamento inteligente (em desenvolvimento)
+- [x] Fase 6: Proteções (66% - idempotência implementada)
+- [ ] Fase 7: Monitoramento (Prometheus + Grafana)
+- [ ] Fase 8: Deploy em produção
 
 ---
 
-## Contact
+## Licença
 
-**Developer:** [@vitinh0z](https://github.com/vitinh0z)
+Este projeto usa a licença MIT com requisito de atribuição.
 
-| Type | Link |
-|------|------|
-| Bugs | Open an [issue](https://github.com/vitinh0z/oz-pay/issues) |
-| Ideas | [GitHub Discussions](https://github.com/vitinh0z/oz-pay/discussions) |
-| Email | [Contact via GitHub](https://github.com/vitinh0z) |
+**Resumo:**
+- Pode usar comercialmente
+- Pode modificar
+- Pode distribuir
+- Deve incluir aviso de copyright original
+- Deve dar crédito ao Orchestra.io
+
+Veja [LICENSE](LICENSE) para termos completos.
 
 ---
 
-<p align="center">
-  Made with dedication for the Brazilian developer community
-</p>
+## Suporte
 
-<p align="center">
-  <i>"Payments shouldn't be complicated. They should just work."</i>
-</p>
+| Tipo | Canal |
+|------|-------|
+| **Bugs** | [GitHub Issues](https://github.com/vitinh0z/orchestra.io/issues) |
+| **Melhorias** | [GitHub Discussions](https://github.com/vitinh0z/orchestra.io/discussions) |
+| **Segurança** | security@orchestra.io |
+| **Dúvidas** | [GitHub Discussions](https://github.com/vitinh0z/orchestra.io/discussions) |
 
+---
+
+## Por que escolher Orchestra.io?
+
+### Comparado com integração direta
+
+| Você faz | Orchestra faz |
+|----------|---------------|
+| Integra Stripe | Uma única integração |
+| Integra MercadoPago | Funciona com múltiplos gateways |
+| Gerencia roteamento | Roteamento automático |
+| Implementa retry | Retry já incluído |
+| Configura métricas | Métricas prontas |
+
+### Comparado com outras soluções
+
+| Orchestra.io | Outras soluções |
+|--------------|-----------------|
+| **Código aberto** | Código fechado |
+| **Pode hospedar você mesmo** | Apenas na nuvem deles |
+| **Licença MIT** | Licenças restritivas |
+| **Sem taxas extras** | Taxa adicional de 0.5%+ por transação |
+| **Totalmente customizável** | Limitado ao que oferecem |
+
+---
+
+<div align="center">
+
+**Desenvolvido por [@vitinh0z](https://github.com/vitinh0z)**
+
+*Orquestração de pagamentos simplificada*
+
+[GitHub](https://github.com/vitinh0z/orchestra.io) · [Twitter](https://twitter.com/vitinh0z_dev) · [LinkedIn](https://linkedin.com/in/vitinh0z)
+
+</div>
