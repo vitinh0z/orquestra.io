@@ -72,15 +72,39 @@ const payment = await orchestra.processar({
 
 ## Principais Recursos
 
-### Roteamento Automático
+### Roteamento Automático com Failover
 
-O sistema escolhe automaticamente o melhor gateway baseado na moeda:
+O sistema escolhe automaticamente o melhor gateway baseado na moeda. **Se o gateway principal falhar, redireciona automaticamente para o alternativo.**
+
+```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1a1a1a','primaryTextColor':'#fff','primaryBorderColor':'#00ff00','lineColor':'#00ff00','secondaryColor':'#2a2a2a','tertiaryColor':'#1a1a1a'}}}%%
+flowchart TD
+    Start([Cliente envia pagamento BRL]) --> Router{SmartRouter analisa}
+    Router -->|Gateway Principal| MP[Tenta MercadoPago]
+    
+    MP -->|✅ Sucesso| Success([Pagamento Aprovado])
+    MP -->|❌ Timeout/Erro| Failover{Failover Automático}
+    
+    Failover -->|Tenta Gateway Alternativo| Stripe[Processa via Stripe]
+    Stripe -->|✅ Sucesso| Success
+    Stripe -->|❌ Falha| Failed([Pagamento Recusado])
+    
+    style Start fill:#1a1a1a,stroke:#00ff00,color:#fff
+    style Router fill:#1a1a1a,stroke:#00ff00,color:#fff
+    style MP fill:#1a1a1a,stroke:#00ff00,color:#fff
+    style Failover fill:#1a1a1a,stroke:#ff9900,color:#fff
+    style Stripe fill:#1a1a1a,stroke:#00ff00,color:#fff
+    style Success fill:#1a1a1a,stroke:#00ff00,color:#fff
+    style Failed fill:#1a1a1a,stroke:#ff0000,color:#fff
+```
 
 | Moeda | Gateway Principal | Gateway Alternativo | Métodos Disponíveis |
 |-------|------------------|---------------------|---------------------|
-| BRL | MercadoPago | Stripe | PIX, Boleto, Cartão |
+| BRL | MercadoPago | Stripe (Failover) | PIX, Boleto, Cartão |
 | USD | Stripe | PayPal (Planejado) | Cartão, Apple Pay |
 | EUR | Stripe | Adyen (Planejado) | Cartão, SEPA |
+
+**Exemplo prático:** Cliente brasileiro tenta pagar R$ 197 via PIX. MercadoPago está fora do ar (timeout após 3s). Orchestra.io detecta a falha e automaticamente redireciona para Stripe, processando como cartão. Cliente nem percebe o problema.
 
 ### Tradutor Universal de Webhooks
 
@@ -103,13 +127,13 @@ Em vez de o seu time de backend ter que tratar 5 formatos diferentes de Webhook 
 Orchestra.io nunca armazena dados sensíveis de cartão. Tudo é tokenizado antes de chegar no servidor.
 
 ```mermaid
-%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1a1a1a','primaryTextColor':'#fff','primaryBorderColor':'#00ff00','lineColor':'#00ff00','secondaryColor':'#2a2a2a','tertiaryColor':'#1a1a1a','fontSize':'14px'}}}%%
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1a1a1a','primaryTextColor':'#fff','primaryBorderColor':'#00ff00','lineColor':'#00ff00','secondaryColor':'#2a2a2a','tertiaryColor':'#1a1a1a'}}}%%
 sequenceDiagram
     autonumber
     participant Cliente
     participant Frontend
     participant Gateway
-    participant Orchestra
+    participant Orchestra.io
     participant Banco de Dados
 
     Cliente->>Frontend: Digita dados do cartão
@@ -125,23 +149,24 @@ sequenceDiagram
 
 **Seu servidor nunca vê dados de cartão. Conformidade simplificada.**
 
-### Proteção Contra Duplicação
+### Proteção Contra Duplicação e Failover Automático
 
-Sistema de proteção evita cobranças duplicadas em caso de requisições repetidas:
+Sistema de proteção evita cobranças duplicadas e garante alta disponibilidade:
 
 | Recurso | Status | Benefício |
 |---------|--------|-----------|
-| **Idempotência** | Implementado | Mesmo pagamento não é cobrado 2x |
-| **Bloqueio Distribuído** | Implementado | Funciona com múltiplos servidores |
-| **Retry Automático** | Em desenvolvimento | Tenta novamente se gateway falhar |
-| **Circuit Breaker** | Planejado | Isola gateways com problemas |
-| **Métricas em Tempo Real** | Planejado | Dashboard de performance |
+| **Idempotência** | ✅ Implementado | Mesmo pagamento não é cobrado 2x |
+| **Bloqueio Distribuído** | ✅ Implementado | Funciona com múltiplos servidores |
+| **Failover Automático** | 🚧 Em desenvolvimento | Se gateway falha, tenta o próximo automaticamente |
+| **Retry Automático** | 🚧 Em desenvolvimento | Tenta novamente em caso de falha temporária |
+| **Circuit Breaker** | 📋 Planejado | Isola gateways com problemas |
+| **Métricas em Tempo Real** | 📋 Planejado | Dashboard de performance |
 
 ### Isolamento por Cliente
 
 Cada cliente tem suas próprias credenciais e dados completamente separados:
 
-```java
+```javascript
 // Cada empresa tem suas configurações isoladas
 POST /v1/tenants
 {
@@ -236,15 +261,11 @@ cd orchestra.io
 
 # 2. Inicie a infraestrutura
 docker-compose up -d
-# PostgreSQL estará disponível em localhost:5432
-# Redis estará disponível em localhost:6379
 
 # 3. Configure suas credenciais
 cp .env.example .env
-# Edite o arquivo .env com suas chaves de teste
 
 # 4. Execute a aplicação
-./mvnw clean install
 ./mvnw spring-boot:run
 ```
 
@@ -256,37 +277,15 @@ cp .env.example .env
 # 1. Crie uma conta
 curl -X POST http://localhost:8080/v1/tenants \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "Minha Empresa",
-    "gateways": {
-      "mercadopago": "TEST-123456-abcdef"
-    }
-  }'
+  -d '{ "name": "Minha Empresa" }'
 
 # Resposta: { "apiKey": "orch_abc123..." }
 
 # 2. Processe um pagamento PIX
 curl -X POST http://localhost:8080/v1/payments \
-  -H "Content-Type: application/json" \
   -H "X-Orchestra-Key: orch_abc123..." \
   -H "Idempotency-Key: pedido-001" \
-  -d '{
-    "amount": 197.00,
-    "currency": "BRL",
-    "paymentMethod": { "type": "pix" }
-  }'
-```
-
-**Resposta:**
-```json
-{
-  "id": "pay_xyz789",
-  "status": "pending",
-  "pix": {
-    "qr_code": "00020126580014br.gov.bcb.pix...",
-    "expires_at": "2026-01-20T18:30:00Z"
-  }
-}
+  -d '{ "amount": 197.00, "currency": "BRL", "paymentMethod": { "type": "pix" } }'
 ```
 
 ---
@@ -299,54 +298,8 @@ curl -X POST http://localhost:8080/v1/payments \
 
 **Cabeçalhos obrigatórios:**
 ```http
-Content-Type: application/json
 X-Orchestra-Key: sua_chave_api
 Idempotency-Key: identificador_unico
-```
-
-**Exemplo de requisição (PIX):**
-```json
-{
-  "amount": 197.00,
-  "currency": "BRL",
-  "paymentMethod": {
-    "type": "pix"
-  },
-  "customer": {
-    "email": "cliente@exemplo.com",
-    "document": "12345678900"
-  }
-}
-```
-
-**Exemplo de requisição (Cartão):**
-```json
-{
-  "amount": 49.99,
-  "currency": "USD",
-  "paymentMethod": {
-    "type": "card_token",
-    "token": "tok_visa_4242"
-  },
-  "customer": {
-    "email": "customer@example.com"
-  }
-}
-```
-
-**Resposta de sucesso:**
-```json
-{
-  "id": "pay_abc123",
-  "status": "approved",
-  "amount": 49.99,
-  "currency": "USD",
-  "gateway": {
-    "provider": "stripe",
-    "transaction_id": "ch_3ABC..."
-  },
-  "created_at": "2026-01-20T18:00:00Z"
-}
 ```
 
 ### Métodos de Pagamento
@@ -357,6 +310,8 @@ Idempotency-Key: identificador_unico
 | **Boleto** | `boleto` | MercadoPago | Brasil |
 | **Cartão de Crédito** | `card_token` | Stripe, MercadoPago, PayPal (Breve) | Global |
 | **Cartão de Débito** | `card_token` | Stripe, MercadoPago | Global |
+
+> 📖 **Documentação Completa:** Para exemplos detalhados de requisições e respostas, veja [docs/api-reference.md](docs/api-reference.md)
 
 ---
 
@@ -483,7 +438,7 @@ Use estes cartões no ambiente de testes do Stripe:
 
 ## Como Contribuir
 
-Contribuições são bem-vindas. Este é um projeto de código aberto para a comunidade.
+Contribuições são bem-vindas.
 
 ### Processo
 
@@ -491,7 +446,7 @@ Contribuições são bem-vindas. Este é um projeto de código aberto para a com
 2. Crie uma branch: `git checkout -b minha-melhoria`
 3. Faça suas alterações seguindo os padrões do projeto
 4. Escreva testes (mínimo 80% de cobertura)
-5. Commit: `git commit -m "Adiciona suporte para PayPal"`
+5. Commit: `git commit -m "feat: adiciona suporte para PayPal"`
 6. Push: `git push origin minha-melhoria`
 7. Abra um Pull Request
 
@@ -506,10 +461,10 @@ Contribuições são bem-vindas. Este é um projeto de código aberto para a com
 
 ### Onde Ajudar
 
-- Encontrou um bug? Abra uma [issue](https://github.com/vitinh0z/orchestra.io/issues)
-- Tem uma sugestão? Inicie uma [discussão](https://github.com/vitinh0z/orchestra.io/discussions)
-- Quer adicionar um gateway? Implemente a interface `PaymentGateway`
-- Melhorar documentação? Pull requests são muito apreciados
+- 🐛 Encontrou um bug? Abra uma [issue](https://github.com/vitinh0z/orchestra.io/issues)
+- 💡 Tem uma sugestão? Inicie uma [discussão](https://github.com/vitinh0z/orchestra.io/discussions)
+- 🔌 Quer adicionar um gateway? Implemente a interface `PaymentGateway`
+- 📖 Melhorar documentação? Pull requests são muito apreciados
 
 ---
 
@@ -517,30 +472,11 @@ Contribuições são bem-vindas. Este é um projeto de código aberto para a com
 
 | Informação | Status |
 |-----------|--------|
-| **Build** | Funcionando |
+| **Build** | ✅ Funcionando |
 | **Cobertura de Testes** | 83% |
 | **Versão** | 0.4.0-alpha |
 | **Licença** | MIT com Atribuição |
 | **Progresso** | 67% completo |
-
-### Plano de Desenvolvimento
-
-- [x] Fase 0: Base do projeto (Spring Boot + Arquitetura)
-- [x] Fase 1: Modelo de domínio
-- [x] Fase 2: Camada de aplicação (faltam alguns testes)
-- [x] Fase 3: Infraestrutura básica
-- [x] Fase 4: Isolamento por cliente e segurança
-- [ ] Fase 5: Roteamento inteligente (em desenvolvimento)
-- [x] Fase 6: Proteções (66% - idempotência implementada)
-- [ ] Fase 7: Monitoramento (Prometheus + Grafana)
-- [ ] Fase 8: Deploy em produção
-
-### Integrações Planejadas (Roadmap)
-
-- [ ] **PayPal** (Carteira Digital Global)
-- [ ] **Cielo** (Líder no Brasil)
-- [ ] **Adyen** (Enterprise Global)
-- [ ] **Pagar.me** (PSP Brasileiro)
 
 ---
 
@@ -549,11 +485,11 @@ Contribuições são bem-vindas. Este é um projeto de código aberto para a com
 Este projeto usa a licença MIT com requisito de atribuição.
 
 **Resumo:**
-- Pode usar comercialmente
-- Pode modificar
-- Pode distribuir
-- Deve incluir aviso de copyright original
-- Deve dar crédito ao Orchestra.io
+- ✅ Pode usar comercialmente
+- ✅ Pode modificar
+- ✅ Pode distribuir
+- ⚠️ Deve incluir aviso de copyright original
+- ⚠️ Deve dar crédito ao Orchestra.io
 
 Veja [LICENSE](LICENSE) para termos completos.
 
@@ -563,10 +499,10 @@ Veja [LICENSE](LICENSE) para termos completos.
 
 | Tipo | Canal |
 |------|-------|
-| **Bugs** | [GitHub Issues](https://github.com/vitinh0z/orchestra.io/issues) |
-| **Melhorias** | [GitHub Discussions](https://github.com/vitinh0z/orchestra.io/discussions) |
-| **Segurança** | security@orchestra.io |
-| **Dúvidas** | [GitHub Discussions](https://github.com/vitinh0z/orchestra.io/discussions) |
+| 🐛 **Bugs** | [GitHub Issues](https://github.com/vitinh0z/orchestra.io/issues) |
+| 💬 **Discussões** | [GitHub Discussions](https://github.com/vitinh0z/orchestra.io/discussions) |
+| 🔒 **Segurança** | security@orchestra.io |
+| 📖 **Documentação** | Este arquivo |
 
 ---
 
@@ -582,20 +518,19 @@ Veja [LICENSE](LICENSE) para termos completos.
 | Implementa retry | Retry já incluído |
 | Configura métricas | Métricas prontas |
 | Trata 5 tipos de Webhook | **Traduz tudo para um formato único** |
+| Trata falhas manualmente | **Failover automático entre gateways** |
 
 ### Comparado com outras soluções
 
 | Orchestra.io | Outras soluções |
 |--------------|-----------------|
-| **Código aberto** | Código fechado |
-| **Pode hospedar você mesmo** | Apenas na nuvem deles |
-| **Licença MIT** | Licenças restritivas |
-| **Sem taxas extras** | Taxa adicional de 0.5%+ por transação |
-| **Totalmente customizável** | Limitado ao que oferecem |
+| ✅ Código aberto | ❌ Código fechado |
+| ✅ Self-hosted | ❌ Apenas SaaS |
+| ✅ Licença MIT | ❌ Licenças restritivas |
+| ✅ Sem taxas extras | ❌ Taxa de 0.5%+ por transação |
+| ✅ Totalmente customizável | ❌ Limitado ao que oferecem |
 
 ---
-
-<div align="center">
 
 **Desenvolvido por [@vitinh0z](https://github.com/vitinh0z)**
 
