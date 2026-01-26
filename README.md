@@ -1,6 +1,6 @@
-<div align="center">
-
 # Orchestra.io
+
+<div align="center">
 
 **Plataforma de Orquestração de Pagamentos**
 
@@ -10,13 +10,17 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 
+</div>
+
 ```
-    ____            __              __                 _     
-   / __ \________  / /_  ___  _____/ /_________ _     (_)___ 
-  / / / / ___/ __ \/ __ \/ _ \/ ___/ __/ ___/ __ `/   / / __ \
- / /_/ / /  / /_/ / / / /  __(__  ) /_/ /  / /_/ /   / / /_/ /
- \____/_/   \____/_/ /_/\___/____/\__/_/   \__,_(_) /_/\____/ 
+ ____            __              __                 _     
+/ __ \________  / /_  ___  _____/ /_________ _     (_)___ 
+/ / / / ___/ __ \/ __ \/ _ \/ ___/ __/ ___/ __ `/   / / __ \
+/ /_/ / /  / /_/ / / / /  __(__  ) /_/ /  / /_/ /   / / /_/ /
+\____/_/   \____/_/ /_/\___/____/\__/_/   \__,_(_) /_/\____/ 
 ```
+
+<div align="center">
 
 ### Uma integração. Múltiplos gateways de pagamento.
 
@@ -75,8 +79,24 @@ O sistema escolhe automaticamente o melhor gateway baseado na moeda:
 | Moeda | Gateway Principal | Gateway Alternativo | Métodos Disponíveis |
 |-------|------------------|---------------------|---------------------|
 | BRL | MercadoPago | Stripe | PIX, Boleto, Cartão |
-| USD | Stripe | - | Cartão, Apple Pay |
-| EUR | Stripe | - | Cartão, SEPA |
+| USD | Stripe | PayPal (Planejado) | Cartão, Apple Pay |
+| EUR | Stripe | Adyen (Planejado) | Cartão, SEPA |
+
+### Tradutor Universal de Webhooks
+
+**Gateways te ajudam a cobrar. O Orchestra.io te ajuda a não enlouquecer com a integração.**
+
+Em vez de o seu time de backend ter que tratar 5 formatos diferentes de Webhook (Stripe, MercadoPago, PayPal...), o Orchestra.io **normaliza tudo**.
+
+**Você integra UMA vez. Nós traduzimos o resto.**
+
+| Gateway | O que eles mandam (O Caos) | O que você recebe (Orchestra) |
+|---------|---------------------------|-------------------------------|
+| **Stripe** | `{ "type": "payment_intent.succeeded", ... }` | `{ "status": "APPROVED" }` |
+| **MercadoPago** | `{ "action": "payment.created", ... }` | `{ "status": "APPROVED" }` |
+| **PayPal** | `{ "event_type": "PAYMENT.CAPTURE.COMPLETED" }` | `{ "status": "APPROVED" }` |
+
+> **Resultado:** Se você trocar de Gateway no futuro, seu código de webhook **não precisa mudar**.
 
 ### Segurança por Design
 
@@ -150,11 +170,12 @@ graph TB
     subgraph API["Camada de API"]
         Controller["PaymentController"]
         Filter["ApiKeyFilter"]
+        Webhooks["WebhookController (Tradutor)"]
     end
     
     subgraph Application["Camada de Aplicação"]
         UseCase["ProcessPaymentUseCase"]
-        Router["SmartRouter - em desenvolvimento"]
+        Router["SmartRouter"]
     end
     
     subgraph Domain["Camada de Domínio"]
@@ -170,6 +191,7 @@ graph TB
     end
     
     Controller --> Filter
+    Webhooks --> UseCase
     Filter --> UseCase
     UseCase --> Router
     Router --> Gateway
@@ -329,11 +351,11 @@ Idempotency-Key: identificador_unico
 
 ### Métodos de Pagamento
 
-| Método | Código | Gateways | Disponível em |
-|--------|--------|----------|---------------|
+| Método | Código | Gateways Suportados | Disponível em |
+|--------|--------|---------------------|---------------|
 | **PIX** | `pix` | MercadoPago | Brasil |
 | **Boleto** | `boleto` | MercadoPago | Brasil |
-| **Cartão de Crédito** | `card_token` | Stripe, MercadoPago | Global |
+| **Cartão de Crédito** | `card_token` | Stripe, MercadoPago, PayPal (Breve) | Global |
 | **Cartão de Débito** | `card_token` | Stripe, MercadoPago | Global |
 
 ---
@@ -513,6 +535,13 @@ Contribuições são bem-vindas. Este é um projeto de código aberto para a com
 - [ ] Fase 7: Monitoramento (Prometheus + Grafana)
 - [ ] Fase 8: Deploy em produção
 
+### Integrações Planejadas (Roadmap)
+
+- [ ] **PayPal** (Carteira Digital Global)
+- [ ] **Cielo** (Líder no Brasil)
+- [ ] **Adyen** (Enterprise Global)
+- [ ] **Pagar.me** (PSP Brasileiro)
+
 ---
 
 ## Licença
@@ -552,6 +581,7 @@ Veja [LICENSE](LICENSE) para termos completos.
 | Gerencia roteamento | Roteamento automático |
 | Implementa retry | Retry já incluído |
 | Configura métricas | Métricas prontas |
+| Trata 5 tipos de Webhook | **Traduz tudo para um formato único** |
 
 ### Comparado com outras soluções
 
