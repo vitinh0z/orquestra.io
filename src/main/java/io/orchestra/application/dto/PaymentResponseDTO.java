@@ -16,8 +16,12 @@ public record PaymentResponseDTO(
 
         GatewayDetails details,
 
-        LocalDateTime createAt
+        LocalDateTime createAt,
+
+        String qrCode,
+
+        String qrCodeBase64,
+
+        String customerEmail
 
 ) {}
-
-

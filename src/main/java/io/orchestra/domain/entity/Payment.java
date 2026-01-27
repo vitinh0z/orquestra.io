@@ -23,6 +23,11 @@ public class Payment {
     private String currency;
     private String gatewayTransactionId;
     private LocalDateTime createdAt;
+    private String qrCode;
+    private String qrCodeBase64;
+    private String customerEmail;
+    private String paymentMethod;
+    private String ticketUrl;
 
 
     public boolean isPositive(BigDecimal amount){

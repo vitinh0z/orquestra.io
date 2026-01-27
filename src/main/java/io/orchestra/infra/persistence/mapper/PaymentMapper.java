@@ -17,8 +17,11 @@ public class PaymentMapper {
                 payment.getAmount(),
                 payment.getStatus(),
                 payment.getCurrency(),
-                null,
-                payment.getCreatedAt()
+                payment.getGatewayTransactionId(),
+                payment.getCreatedAt(),
+                payment.getQrCode(),
+                payment.getQrCodeBase64(),
+                payment.getCustomerEmail()
         );
     }
 
@@ -32,7 +35,11 @@ public class PaymentMapper {
                 payment.getMoney(),
                 payment.getStatus(),
                 payment.getCurrency(),
-                payment.getCreatedAt()
+                payment.getCreatedAt(),
+                payment.getQrCode(),
+                payment.getQrCodeBase64(),
+                payment.getGatewayTransactionId(),
+                payment.getCustomerEmail()
         );
     }
 }

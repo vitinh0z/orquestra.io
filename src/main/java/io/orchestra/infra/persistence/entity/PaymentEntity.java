@@ -41,4 +41,20 @@ public class PaymentEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String qrCode;
+
+    @Column(columnDefinition = "TEXT")
+    private String qrCodeBase64;
+
+    private String gatewayTransactionId;
+
+    private String customerEmail;
+
+    @Column(name = "payment_method")
+    private String paymentMethod;
+
+    @Column(name = "ticket_url", columnDefinition = "TEXT")
+    private String ticketUrl;
 }
