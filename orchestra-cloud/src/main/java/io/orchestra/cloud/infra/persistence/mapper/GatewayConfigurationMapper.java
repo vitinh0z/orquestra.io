@@ -5,9 +5,9 @@ import io.orchestra.cloud.infra.persistence.gateway.GatewayEntity;
 import io.orchestra.cloud.infra.security.CryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DatabindException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.Map;
 
@@ -33,7 +33,7 @@ public class GatewayConfigurationMapper {
                     gateway.getPriority(),
                     gateway.isActive()
             );
-        } catch (JsonProcessingException e) {
+        } catch (DatabindException e) {
             throw new RuntimeException(e);
         }
     }
@@ -59,7 +59,7 @@ public class GatewayConfigurationMapper {
                     gatewayEntity.isActive()
             );
 
-        } catch (JsonProcessingException e) {
+        } catch (DatabindException e) {
             throw new RuntimeException(e);
         }
     }

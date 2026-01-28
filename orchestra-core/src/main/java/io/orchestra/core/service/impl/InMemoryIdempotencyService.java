@@ -1,7 +1,7 @@
 package io.orchestra.core.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.ObjectMapper;
 import io.orchestra.core.service.IdempotencyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,10 +44,10 @@ public class InMemoryIdempotencyService implements IdempotencyService {
         }
         
         try {
-            T response = objectMapper.readValue(entry.getValue(), responseType);
+            T response = objectMapper.readValue(entry.value(), responseType);
             log.info("Cache hit for idempotency key: {}", idempotencyKey);
             return Optional.of(response);
-        } catch (JsonProcessingException e) {
+        } catch (DatabindException e) {
             log.error("Error deserializing cached response for key {}: {}", idempotencyKey, e.getMessage());
             cache.remove(idempotencyKey);
             return Optional.empty();
@@ -61,7 +61,7 @@ public class InMemoryIdempotencyService implements IdempotencyService {
             Instant expiresAt = Instant.now().plus(ttl);
             cache.put(idempotencyKey, new CacheEntry(jsonValue, expiresAt));
             log.debug("Cached response for idempotency key: {} with TTL: {}", idempotencyKey, ttl);
-        } catch (JsonProcessingException e) {
+        } catch (DatabindException e) {
             log.error("Error serializing response for caching: {}", e.getMessage());
         }
     }
