@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 public class User {
 
     private Long id;
-    private String tanentId;
+    private String tenantId;
     private String firstName;
     private String lastName;
     private String document;

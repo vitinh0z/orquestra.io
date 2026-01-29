@@ -16,7 +16,7 @@ import java.util.UUID;
 public class Gateway {
 
     private UUID id;
-    private UUID tenentId;
+    private UUID tenantId;
     private String gatewayName;
     private Map<String, String> credential;
     private Integer priority = 1;

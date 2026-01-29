@@ -25,7 +25,7 @@ public class Payment {
     private LocalDateTime createdAt;
 
 
-    public boolean isPositive(BigDecimal amount){
-        return getMoney().compareTo(amount) <= 0;
+    public boolean isPositive() {
+        return this.money != null && this.money.compareTo(BigDecimal.ZERO) > 0;
     }
 }
