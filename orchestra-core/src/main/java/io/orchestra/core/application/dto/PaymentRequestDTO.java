@@ -12,7 +12,7 @@ public record PaymentRequestDTO(
 
 
         @NotNull
-        String idempotecyKey,
+        String idempotencyKey,
 
         @NotNull(message = "O valor é obrigatório")
         @DecimalMin(value = "0.01", message = "O valor deve ser maior que zero")
