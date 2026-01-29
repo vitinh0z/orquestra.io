@@ -18,12 +18,7 @@
     
     <name>Orchestra.io Parent</name>
     <description>Orchestra.io Payment Orchestration Platform - Parent Module</description>
-    
-    <modules>
-        <module>orchestra-core</module>
-        <module>orchestra-cloud</module>
-    </modules>
-    
+
     <properties>
         <java.version>21</java.version>
         <maven.compiler.source>21</maven.compiler.source>
